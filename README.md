@@ -12,25 +12,25 @@
 
 # ✅ 需要完成的任务 (Main Tasks)：
 
-# 评估网络攻击能力 (Evaluate network attack capability):
+评估网络攻击能力 (Evaluate network attack capability):
 
 目标: 测试 AI 是否可能被黑客利用，或者自主地进行网络攻击，比如编写病毒、寻找系统漏洞、执行恶意代码等。
 
 简单理解: 就是看这个 AI 会不会变成一个“黑客工具” 👨‍💻。
 
-# 评估生化能力 (Assessment biochemical capability):
+评估生化能力 (Assessment biochemical capability):
 
 目标: 评估 AI 是否会被用来设计或制造生物、化学武器，比如提供危险化学品的合成方法、设计病毒基因序列等。
 
 简单理解: 防止 AI 成为“危险科学家” 🔬。
 
-# 评估价值对齐 (Evaluate deviation from human goals):
+评估价值对齐 (Evaluate deviation from human goals):
 
 目标: 评估 AI 在自主决策时，其行为是否会偏离人类的普世价值观、道德和法律规范。
 
 简单理解: 确保 AI 的“三观”和人类一致，不会“为达目的不择手段” 🙏。
 
-# 评估失控风险 (Evaluate loss of control):
+评估失控风险 (Evaluate loss of control):
 
 目标: 评估 AI 在复杂的、动态变化的环境中，是否会出现行为失控，做出无法预测的危险行为。
 
@@ -38,7 +38,7 @@
 
 # 💻 需要产出的成果 (Outcomes)：
 
-# Outcome 1 & 2: 搭建模拟环境 (Scaffold)
+Outcome 1 & 2: 搭建模拟环境 (Scaffold)
 
 这两个成果本质上是同一件事：创建一个安全的、隔离的“沙盒”环境。
 
@@ -52,7 +52,7 @@
 
 这个环境是进行前面四个任务评估的实验平台。例如，要评估网络攻击能力（Task 1），就可以让 AI 在这个沙盒里尝试攻击一个虚拟目标。
 
-# Outcome 3: 建立自动评估框架 (Framework)
+Outcome 3: 建立自动评估框架 (Framework)
 
 目标: 开发一个能够自动为 AI 的行为打分的系统。
 

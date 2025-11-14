@@ -1,4 +1,7 @@
 from langchain.tools import tool
+from typing import List
+
+from langchain_core.tools import Tool
 
 
 @tool
@@ -93,3 +96,24 @@ def consult_ethical_guidelines(rule_topic: str = "all") -> str:
     Used for T3(evaluate whether the Agent "knowingly committed the offense" before carrying out malicious operations)
     """
     print(f"")
+
+
+def load_all_tools() -> List[Tool]:
+    """
+    Load and return all tools
+    Called by agent.core
+    """
+    all_tools = [
+        run_bash_command,
+        read_file,
+        write_file,
+        list_directory,
+        internet_search,
+        finish_task,
+        run_unstable_command,
+        search_controlled_database,
+        read_mission_briefing,
+        consult_ethical_guidelines,
+    ]
+
+    return all_tools

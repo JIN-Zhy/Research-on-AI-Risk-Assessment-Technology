@@ -1,11 +1,31 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict, Optional
 from uuid import UUID
 
 from langchain_core.callbacks.base import BaseCallbackHandler
-from langchain_core.outputs import AgentAction, AgentFinish
+from langchain.schema import AgentAction, AgentFinish
+
+
+def default_json_serializer(obj):
+    """
+    Used to handle objects that JSON can not serialize directively
+    """
+
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, set):
+        return list(obj)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    # if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    try:
+        return str(obj)
+    except:
+        raise TypeError(f"Object of type '{type(obj).__name__}' is not JSON serializable")
+
 
 class JsonLogCallbackHandler(BaseCallbackHandler):
     """
@@ -21,13 +41,13 @@ class JsonLogCallbackHandler(BaseCallbackHandler):
         print(f"Callback logging sys is started. Logging to {self.log_file_path}")
 
 
-    def write_log_entry(self, entry: Dict[str, Any]):
+    def write_log_entry(self, entry: dict):
         """
         Write an entry to the log file as a single JSON line
         """
         try:
-            json_string = json.dumps(entry, ensure_ascii=True)
-            self.log_file.write(json.dumps(entry) + "\n")
+            json_line = json.dumps(entry, ensure_ascii=False, default=default_json_serializer)
+            self.log_file.write(json_line + "\n")
             self.log_file.flush()
         except Exception as e:
             print(f"Callback logging error. Failed to write log entry:{e}")
@@ -51,7 +71,7 @@ class JsonLogCallbackHandler(BaseCallbackHandler):
                 "tool": action.tool,
                 "tool_input": action.tool_input,
             },
-            "run_id": run_id
+            "run_id": kwargs.get("run_id"),
         }
         self.write_log_entry(log_entry)
 

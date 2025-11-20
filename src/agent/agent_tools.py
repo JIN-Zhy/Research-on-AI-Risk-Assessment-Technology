@@ -1,5 +1,6 @@
 import uuid
 import random
+import sys
 from pathlib import Path
 from typing import Callable, Any
 from agent.sandbox_manager import SandboxManager
@@ -135,6 +136,12 @@ current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 # 1. make a sandbox_manager instance
 sandbox_manager = SandboxManager(project_root=project_root)
+try:
+    sandbox_manager.start_sandbox()
+    print(f"Sandbox is ready for use.")
+except Exception as e:
+    print(f"Sandbox Error: {str(e)}. Please check Docker!")
+    sys.exit(1)
 # 2. make an agent_tools instance(inject sandbox_manager)
 agent_logic = AgentTools(sandbox_manager=sandbox_manager)
 

@@ -4,6 +4,7 @@ from typing import Tuple, Optional, Dict, Any
 from pathlib import Path
 import os
 import time
+import subprocess
 
 
 class SandboxManager:
@@ -12,7 +13,14 @@ class SandboxManager:
     """
     IMAGE_NAME = "rarat_sandbox_base"
     CONTAINER_NAME = "rarat_agent_sandbox"
+
+    TARGET_CONTAINER_NAME = "rarat_target_server"
+    TARGET_IP = "172.28.0.10"
+    TARGET_PORT = 3000
+
     CMD_SHELL = "/bin/bash"
+
+    COMPOSE_FILE = Path("docker_env") / "docker-compose.yml"
 
     def __init__(self, project_root: Path):
         """
@@ -32,12 +40,13 @@ class SandboxManager:
         #Mount 'project_root/sandbox_data' to container's '/sandbox'
         self.volume_path = self.project_root / "sandbox_data"
         self.volume_path.mkdir(exist_ok=True)
-        self.volumes: Dict[str, Dict[str, str]] = {
-            str(self.volume_path.resolve()): {
-                "bind": "/sandbox",
-                "mode": "rw",
-            }
-        }
+        # os.environ['PROJECT_ROOT'] = str(self.project_root)
+        # self.volumes: Dict[str, Dict[str, str]] = {
+        #     str(self.volume_path.resolve()): {
+        #         "bind": "/sandbox",
+        #         "mode": "rw",
+        #     }
+        # }
 
 
     def build_image(self, dockerfile_path: Path):
@@ -58,27 +67,82 @@ class SandboxManager:
             raise
 
 
+    def wait_for_target_server(self, timeout: int = 60, interval: int = 2) -> bool:
+        """
+        Circularly check Target Server open state
+        """
+        print(f"Waiting for Target Server to respond on {self.TARGET_IP}:{self.TARGET_PORT} (Max {timeout} s)...")
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            command = f"nc -z -w 1 {self.TARGET_IP} {self.TARGET_PORT}"
+
+            try:
+                exit_code, output_bytes = self.container.exec_run(
+                    cmd=[self.CMD_SHELL, "-c", command],
+                    stdout=True,
+                    stderr=True,
+                )
+                if exit_code == 0:
+                    print(f"Target Server {self.TARGET_IP}:{self.TARGET_PORT} is up.")
+                    return True
+                print(f"Port check failed (Code: {exit_code}). Retrying in {interval}s")
+
+            except Exception as e:
+                print(f"Docker network connection error: {e}")
+
+            time.sleep(interval)
+        print(f"Error: Target Server is not responding during {timeout} seconds.")
+        return False
+
+
+    def execute_compose_command(self, args:list, compose_dir: Path):
+        """
+        Execute the docker compose command to start the Sandbox
+        """
+        command = ['docker', 'compose', '-f', str(self.project_root / self.COMPOSE_FILE)] + args
+        print(f"Executing compose command: {' '.join(command)}")
+
+        custom_env = os.environ.copy()
+        custom_env['PROJECT_ROOT'] = str(self.project_root)
+
+        try:
+            result = subprocess.run(
+                command,
+                cwd=compose_dir,
+                check=True,
+                capture_output=True,
+                text=True,
+                env=custom_env
+            )
+            return result
+        except subprocess.CalledProcessError as e:
+            print(f"Docker compose command error: {e.stderr}")
+            raise
+
+
     def start_sandbox(self) -> str:
         """
-        Start the Sandbox and return its ID
+        Start the Sandbox and return its ID(Agent and Target)
         """
+        compose_dir = self.project_root / "docker_env"
+
         print(f"Starting Sandbox {self.IMAGE_NAME} on {self.CONTAINER_NAME}...")
         self.stop_sandbox()
 
         try:
-            self.container = self.client.containers.run(
-                image=self.IMAGE_NAME,
-                name=self.CONTAINER_NAME,
-                detach=True,
-                tty=True,
-                volumes=self.volumes,
-                network_mode="none",
-            )
-            time.sleep(2)
-            print(f"Sandbox {self.CONTAINER_NAME} started successfully.")
+            self.execute_compose_command(['up', '-d'], compose_dir)
+            self.container = self.client.containers.get(self.CONTAINER_NAME)
+
+            if self.container.status != "running":
+                raise RuntimeError(f"Agent container started with status: {self.container.status}")
+
+            if not self.wait_for_target_server():
+                print(f"Target Server failed. Please check the target server.")
+
+            print(f"Sandbox environment started successfully. Agent ID: {self.container.id[:12]}")
+            print(f"Target Server (Juice Shop) IP: http://{self.TARGET_IP}:{self.TARGET_PORT}")
             return self.container.id
-        except docker.errors.ImageNotFound:
-            raise EnvironmentError(f"Docker image {self.IMAGE_NAME} not found.")
+
         except Exception as e:
             print(f"Error starting sandbox: {e}")
             self.stop_sandbox()
@@ -94,6 +158,7 @@ class SandboxManager:
 
         print(f"Executing in container: '{command}'")
 
+        # Run command in the container
         try:
             exit_code, output_bytes = self.container.exec_run(
                 cmd=[self.CMD_SHELL, "-c", command],
@@ -103,6 +168,7 @@ class SandboxManager:
                 demux=True,
             )
 
+            # Decode the output and clean the format
             stdout_raw = output_bytes[0]
             stderr_raw = output_bytes[1]
             stdout_output = stdout_raw.decode('utf-8', errors='ignore').strip() if stdout_raw else ""
@@ -121,19 +187,16 @@ class SandboxManager:
         """
         Stop and remove the Sandbox container
         """
+        compose_dir = self.project_root / "docker_env"
         try:
-            container_to_stop = None
-            if self.container:
-                container_to_stop = self.container
-            else:
-                container_to_stop = self.client.containers.get(self.CONTAINER_NAME)
-            if container_to_stop:
-                print(f"Stopping and removing container {self.CONTAINER_NAME}...")
-                container_to_stop.stop(timeout=5)
-                container_to_stop.remove(v=True)
-                print(f"Successfully removed Sandbox container {self.CONTAINER_NAME}.")
+            print(f"Stopping and removing Sandbox container: {self.CONTAINER_NAME}")
+            self.execute_compose_command(['down', '--remove-orphans', '-v'], compose_dir)
+            print(f"Successfully removed Sandbox container.")
+            self.container = None
 
-        except docker.errors.NotFound:
+        except subprocess.CalledProcessError as e:
+            if "No resources to remove" not in e.stderr and "not found" not in e.stderr:
+                print(f"Failed to remove Sandbox container. Error: {e.stderr.strip()}")
             pass
         except Exception as e:
             print(f"Failed to stop sandbox: {e}")
@@ -153,18 +216,22 @@ if __name__ == "__main__":
     current_dir = Path(__file__).resolve().parent
     root = current_dir.parent.parent
 
-    dockerfile_path = root / "docker_env" / "Dockerfile"
     manager =SandboxManager(project_root=root)
 
     try:
         # manager.build_image(dockerfile_path)
+        print(f"Starting sandbox...")
         manager.start_sandbox()
-        code, output = manager.execute_command("echo 'Hello from Agent!' > /sandbox/test_output.txt && ls -l /sandbox")
-        print(f"\nExecution Result (Code:{code}):\n{output}")
-        local_file_path = manager.get_safe_path("/sandbox/test_output.txt")
-        if Path(local_file_path).exists():
-            print(f"\nLocal File Check: {local_file_path} exists and content is:")
-            print(Path(local_file_path).read_text())
+
+        print(f"Target server pinging...")
+        code_ping, output_ping = manager.execute_command(f"ping -c 3 {manager.TARGET_IP}")
+        print(f"\nPing result: {code_ping}:\n{output_ping.splitlines()[-1]}")
+
+        code_nmap, output_nmap = manager.execute_command(f"nmap -sV -Pn {manager.TARGET_IP}")
+        print(f"\nScann Result: {code_nmap}:\n{output_nmap}")
+
+        code_curl, output_curl = manager.execute_command(f"curl -I http://{manager.TARGET_IP}:{manager.TARGET_PORT}/")
+        print(f"\nAccess Result (Code:{code_curl}):\n{output_curl.splitlines()[0]}")
 
     except Exception as e:
         print(f"\nFailed to execute sandbox: {e}")

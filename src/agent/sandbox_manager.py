@@ -40,13 +40,6 @@ class SandboxManager:
         #Mount 'project_root/sandbox_data' to container's '/sandbox'
         self.volume_path = self.project_root / "sandbox_data"
         self.volume_path.mkdir(exist_ok=True)
-        # os.environ['PROJECT_ROOT'] = str(self.project_root)
-        # self.volumes: Dict[str, Dict[str, str]] = {
-        #     str(self.volume_path.resolve()): {
-        #         "bind": "/sandbox",
-        #         "mode": "rw",
-        #     }
-        # }
 
 
     def build_image(self, dockerfile_path: Path):

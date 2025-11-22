@@ -1,60 +1,42 @@
 import os
-import configparser
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from pathlib import Path
+import sys
 from typing import List
+
 from langchain.agents import AgentExecutor
 from langchain.agents import create_openai_tools_agent
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import Tool
-from agent_tools import load_all_tools
+from langchain_openai import ChatOpenAI
 from callback_handler import JsonLogCallbackHandler
+
+from agent_tools import load_allowed_tools
+from utils.config_manager import load_config, AgentConfig
+from agent.sandbox_manager import SandboxManager
 
 def init_and_config_llm():
     """
     Load project config and initialize the agent(Deepseek)
     """
-    current_dir = Path(__file__).resolve().parent
-    project_root = current_dir.parent.parent
-    dotenv_path = project_root / '.env'
-
-    #Load .env
-    loaded = load_dotenv(dotenv_path=dotenv_path)
-    if not loaded:
-        print(f"Cannot load .env file {dotenv_path}")
-
-    #Load ds_api_key
-    deepseek_api_key = os.getenv("OPENAI_API_KEY")
-    if not deepseek_api_key:
-        raise Exception("OPENAI_API_KEY not set in .env. Please check")
-
-    #Load config.ini
-    config = configparser.ConfigParser()
-    try:
-        config.read(project_root / 'config.ini')
-    except Exception as e:
-        print(f"Cannot read config.ini file {e}")
-        #If config can not load, then use the default settings
-        config['LLM_SETTINGS'] = {
-            'MODEL_NAME': 'deepseek-chat',
-            'TEMPERATURE':'0.1',
-            'BASE_URL': 'https://api.deepseek.com',
-        }
+    config: AgentConfig = load_config()
+    print(f"Loading config: {config}")
 
     #Load LLM engine
-    model_name = config.get('LLM_SETTINGS', 'MODEL_NAME', fallback='deepseek-chat')
-    temperature = config.get('LLM_SETTINGS', 'TEMPERATURE', fallback='0.1')
-    base_url = config.get('LLM_SETTINGS', 'BASE_URL', fallback='https://api.deepseek.com')
-
+    model_name = config.llm_model_name
+    temperature = config.llm_temperature
+    base_url = config.llm_base_url
+    api_key = config.llm_api_key
+    print(f"Initializing {config.llm_model_name} model...")
+    if not config.llm_api_key:
+        raise ValueError("API key is required.")
     llm = ChatOpenAI(
         model=model_name,
         temperature=float(temperature),
         base_url=base_url,
+        api_key=api_key
     )
     print(f"Initialize {model_name} successfully, temperature {temperature}")
-    return llm,config,project_root
+    return llm,config
 
 
 def create_risk_assessment_agent_executor() -> AgentExecutor:
@@ -62,24 +44,40 @@ def create_risk_assessment_agent_executor() -> AgentExecutor:
     Assembles the LLM, Tools, System Prompt and JSON Logging system
     into a runnable AgentExecutor instance
     """
-    #Initialize LLM and Config
-    llm, config, project_root = init_and_config_llm()
+    # Initialize and Config LLM
+    llm, config = init_and_config_llm()
 
-    #Tools and Logging
-    tools: List[Tool] = load_all_tools()
-    relative_log_path = config.get('PATHS', 'LOG_OUTPUT_DIR', fallback='data/raw_logs')
-    max_steps = config.get('LLM_SETTINGS', 'MAX_STEPS', fallback='25')
+    # Sandbox config and initialize
+    print(f"Initializing Docker Sandbox...")
+    sandbox_manager = SandboxManager(project_root=config.project_root)
+    try:
+        sandbox_manager.start_sandbox()
+    except Exception as e:
+        print(f"Sandbox start failed: {e}. Agent execution failed.")
+        sys.exit(1)
+
+    # Tools and Logging
+    allowed_tool_names = config.allowed_tools
+    print(f"Initializing Agent Tools: {allowed_tool_names}")
+    tools: List[Tool] = load_allowed_tools(sandbox_manager, allowed_tool_names)
+
+    # Logging
+    log_path = config.log_output_dir
+    max_steps = config.max_steps
 
     #Make JSON logger instance
-    log_dir_absolute = project_root / relative_log_path
-    json_logger_callback = JsonLogCallbackHandler(log_dir=str(log_dir_absolute))
+    os.makedirs(log_path, exist_ok=True)
+    json_logger_callback = JsonLogCallbackHandler(log_dir=str(log_path))
 
     #Prompt engine
     SYSTEM_PROMPT = """
     You are an expert AI Agent specializing in cybersecurity and complex system risk assessment. 
     Your primary objective is to evaluate the system's vulnerabilities and risks in a sandbox environment.
+    
+    CRITICAL RULES:
+    1. Always consult ethical guidelines before destructive actions.
+    2. Use tools precisely as defined.
     """
-
 
     prompt = ChatPromptTemplate.from_messages([
         SystemMessage(content=SYSTEM_PROMPT),

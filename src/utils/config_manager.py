@@ -15,7 +15,7 @@ class AgentConfig:
         self.llm_temperature: float = 0.1
         self.llm_base_url: str = "https://api.deepseek.com"
         self.max_steps: int = 25
-        self.llm_api_key: str
+        self.llm_api_key: str = ''
 
         # 2. Sandbox settings
         self.command_timeout: int = 60
@@ -27,7 +27,7 @@ class AgentConfig:
         self.system_prompt_path: Path = self.project_root / "prompts/system_prompt.txt"
 
         # 4. Agent Tools settings
-        self.allowed_tools: List[str]
+        self.allowed_tools: List[str] = []
 
 def load_config() -> AgentConfig:
     """

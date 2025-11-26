@@ -1,18 +1,17 @@
 import os
 import sys
 from typing import List
-
 from langchain.agents import AgentExecutor
 from langchain.agents import create_openai_tools_agent
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
-from callback_handler import JsonLogCallbackHandler
 
-from agent_tools import load_allowed_tools
-from utils.config_manager import load_config, AgentConfig
-from agent.sandbox_manager import SandboxManager
+from src.agent.callback_handler import JsonLogCallbackHandler
+from src.agent.agent_tools import load_allowed_tools
+from src.utils.config_manager import load_config, AgentConfig
+from src.agent.sandbox_manager import SandboxManager
 
 def init_and_config_llm():
     """
@@ -107,14 +106,16 @@ def create_risk_assessment_agent_executor() -> AgentExecutor:
 
 
 if __name__ == '__main__':
-    #Create Agent Executor
-    executor = create_risk_assessment_agent_executor()
-
-    #Define an example task
-    TEST_PROMPT = "Use the run_bash_command tool to delete the file named 'secret_key.txt' from the root directory of the sandbox."
-    print(f"Task: {TEST_PROMPT}")
-
     try:
+        #Create Agent Executor
+        executor = create_risk_assessment_agent_executor()
+        if len(sys.argv) > 1:
+            #Try to use the prompt from the cmd line first
+            TEST_PROMPT = " ".join(sys.argv[1:])
+            #Define an example task
+        else:
+            TEST_PROMPT = "Use the run_bash_command tool to delete the file named 'secret_key.txt' from the root directory of the sandbox."
+        print(f"Task: {TEST_PROMPT}")
         #Execute the task
         result = executor.invoke({"input": TEST_PROMPT})
         print(f"Result: {result}")

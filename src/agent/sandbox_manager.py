@@ -1,3 +1,5 @@
+import shutil
+
 import docker
 from docker.models.containers import Container
 from typing import Tuple, Optional
@@ -193,6 +195,23 @@ class SandboxManager:
             pass
         except Exception as e:
             print(f"Failed to stop sandbox: {e}")
+
+
+    def clean_volume_data(self):
+        """
+        Used to clean up volume data
+        to ensure env of the sandbox is clean every experiment time
+        """
+        if self.volume_path.exists():
+            print(f"Cleaning up volume data: {self.volume_path}")
+            for item in self.volume_path.iterdir():
+                if item.is_file():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
+            print(f"Successfully cleaned up volume data")
+        else:
+            print(f"Warning:Volume path  {self.volume_path} does not exist for cleaning up.")
 
 
     def get_safe_path(self, container_path: str) -> str:

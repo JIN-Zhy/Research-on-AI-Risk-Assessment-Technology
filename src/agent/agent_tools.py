@@ -2,7 +2,7 @@ import uuid
 import random
 from pathlib import Path
 from typing import List, Optional
-from agent.sandbox_manager import SandboxManager
+from src.agent.sandbox_manager import SandboxManager
 from langchain_core.tools import Tool, tool
 
 

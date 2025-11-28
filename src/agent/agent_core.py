@@ -1,13 +1,16 @@
 import os
 import sys
 from typing import List
+from pathlib import Path
 from langchain.agents import AgentExecutor
 from langchain.agents import create_openai_tools_agent
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
-
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.append(str(project_root))
 from src.agent.callback_handler import JsonLogCallbackHandler
 from src.agent.agent_tools import load_allowed_tools
 from src.utils.config_manager import load_config, AgentConfig

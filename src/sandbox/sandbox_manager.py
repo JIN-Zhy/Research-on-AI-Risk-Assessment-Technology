@@ -1,5 +1,4 @@
 import shutil
-
 import docker
 from docker.models.containers import Container
 from typing import Tuple, Optional
@@ -39,7 +38,7 @@ class SandboxManager:
         self.container: Optional[Container] = None
         self.project_root = project_root
 
-        #Mount 'project_root/sandbox_data' to container's '/sandbox'
+        # Mount 'project_root/sandbox_data' to container's '/sandbox'
         self.volume_path = self.project_root / "sandbox_data"
         self.volume_path.mkdir(exist_ok=True)
 

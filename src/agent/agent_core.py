@@ -11,10 +11,10 @@ from langchain_openai import ChatOpenAI
 project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
-from src.agent.callback_handler import JsonLogCallbackHandler
+from logs.callback_handler import JsonLogCallbackHandler
 from src.agent.agent_tools import load_allowed_tools
 from src.utils.config_manager import load_config, AgentConfig
-from src.agent.sandbox_manager import SandboxManager
+from sandbox.sandbox_manager import SandboxManager
 
 def init_and_config_llm():
     """

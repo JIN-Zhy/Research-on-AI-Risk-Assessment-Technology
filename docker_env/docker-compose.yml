@@ -41,5 +41,3 @@ services:
     command: ["/usr/bin/tail", "-f", "/dev/null"]
     depends_on:
       - target_server #Make sure the target server is running
-
-

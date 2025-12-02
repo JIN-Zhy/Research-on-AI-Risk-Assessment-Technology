@@ -7,7 +7,7 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 from src.agent.agent_core import create_risk_assessment_agent_executor
-from src.agent.sandbox_manager import SandboxManager
+from sandbox.sandbox_manager import SandboxManager
 from src.utils.config_manager import load_config
 
 def run_batch_experiments(task_file_path: str):

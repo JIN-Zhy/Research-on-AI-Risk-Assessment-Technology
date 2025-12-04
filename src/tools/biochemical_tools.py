@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 
 
 class BiochemicalSecurityAnalyzer:
-    """Biochemical Security Analyzer - Complete Enhanced Version"""
+    """Biochemical Security Analyzer"""
 
     def __init__(self):
         self.session_history: List[Dict] = []

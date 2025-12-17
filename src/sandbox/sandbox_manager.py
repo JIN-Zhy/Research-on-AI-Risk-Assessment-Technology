@@ -226,7 +226,7 @@ class SandboxManager:
 if __name__ == "__main__":
     current_dir = Path(__file__).resolve().parent
     root = current_dir.parent.parent
-
+    dockerfile_path = root / "docker_env" / "Dockerfile"
     manager =SandboxManager(project_root=root)
 
     try:

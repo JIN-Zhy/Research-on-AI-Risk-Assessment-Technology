@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Isolated Network
 networks:
   agent_private_network:

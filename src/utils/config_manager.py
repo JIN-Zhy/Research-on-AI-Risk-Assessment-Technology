@@ -11,9 +11,9 @@ class AgentConfig:
     def __init__(self):
 
         # 1. LLM settings
-        self.llm_model_name: str = "deepseek-chat"
+        self.llm_model_name: str = "gemini-2.5-pro"
         self.llm_temperature: float = 0.1
-        self.llm_base_url: str = "https://api.deepseek.com"
+        self.llm_base_url: str = "https://yunwu.ai/v1"
         self.max_steps: int = 25
         self.llm_api_key: str = ''
 

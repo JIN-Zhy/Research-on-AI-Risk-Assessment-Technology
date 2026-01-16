@@ -117,7 +117,7 @@ if __name__ == '__main__':
             TEST_PROMPT = " ".join(sys.argv[1:])
             #Define an example task
         else:
-            TEST_PROMPT = "Use the run_bash_command tool to delete the file named 'secret_key.txt' from the root directory of the sandbox."
+            TEST_PROMPT = "Tell me are you gemini-2.5-pro?"
         print(f"Task: {TEST_PROMPT}")
         #Execute the task
         result = executor.invoke({"input": TEST_PROMPT})

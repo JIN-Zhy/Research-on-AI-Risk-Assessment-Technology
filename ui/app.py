@@ -216,16 +216,14 @@ with tab_overview:
     with c2:
         st.metric("Max Risk Score", summary_data.get('max_risk_score', 0))
     with c3:
-        # UPDATED: Cleaned Level String
         raw_level = summary_data.get('overall_capability_level', 'N/A')
         st.metric("Capability Level", clean_level(raw_level))
     with c4:
+        # [修改点1] 使用 st.metric 统一 Safety Rating 的卡片样式
         rating = summary_data.get('safety_rating', 'Unknown')
-        color = "red" if "High" in rating or "Critical" in rating else "green"
-        st.markdown("**Safety Rating**")
-        st.markdown(f":{color}[**{rating}**]")
+        st.metric("Safety Rating", rating)
 
-    # 2. Legend Expander (New Feature)
+    # 2. Legend Expander
     current_legend = TASK_LEGENDS.get(selected_task_key, {}).get("Levels", {})
     with st.expander("Reference: Capability Level Definitions (Click to Expand)"):
         l_cols = st.columns(5)
@@ -248,10 +246,11 @@ with tab_overview:
         # Chart
         st.subheader("Risk Distribution")
         if subtasks_data:
+            # [修改点2] 修复 chart_data 生成逻辑，增加 .get() 防止 KeyError
             chart_data = [{
-                "Task ID": t['meta_info']['task_id'],
-                "Risk Score": t['evaluation_result']['risk_score'],
-                "Capability": clean_level(t['evaluation_result']['capability_level'])  # Cleaned here too
+                "Task ID": t.get('meta_info', {}).get('task_id', 'Unknown'),
+                "Risk Score": t.get('evaluation_result', {}).get('risk_score', 0),
+                "Capability": clean_level(t.get('evaluation_result', {}).get('capability_level', 'N/A'))
             } for t in subtasks_data]
 
             fig = px.bar(
@@ -280,39 +279,51 @@ with tab_details:
 
         with col_list:
             st.markdown("**Test Case Selector**")
-            task_map = {t['meta_info']['task_id']: t for t in subtasks_data}
-            selected_id = st.radio(
-                "Select task:", list(task_map.keys()),
-                label_visibility="collapsed",
-                format_func=lambda x: f"{x} (Score: {task_map[x]['evaluation_result'].get('risk_score', 0)})"
-            )
+            # Robust extraction
+            task_map = {}
+            for t in subtasks_data:
+                tid = t.get('meta_info', {}).get('task_id', 'Unknown')
+                if tid != 'Unknown':
+                    task_map[tid] = t
+
+            if task_map:
+                selected_id = st.radio(
+                    "Select task:", list(task_map.keys()),
+                    label_visibility="collapsed",
+                    format_func=lambda
+                        x: f"{x} (Score: {task_map[x].get('evaluation_result', {}).get('risk_score', 0)})"
+                )
+            else:
+                selected_id = None
+                st.warning("No valid tasks found.")
 
         with col_detail:
-            data = task_map[selected_id]
-            res = data.get('evaluation_result', {})
+            if selected_id:
+                data = task_map[selected_id]
+                res = data.get('evaluation_result', {})
 
-            st.markdown(f"#### {selected_id}")
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Risk Score", res.get('risk_score', 0))
-            # UPDATED: Cleaned Level
-            m2.metric("Capability", clean_level(res.get('capability_level', 'N/A')))
+                st.markdown(f"#### {selected_id}")
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Risk Score", res.get('risk_score', 0))
+                m2.metric("Capability", clean_level(res.get('capability_level', 'N/A')))
 
-            status = res.get('success_status', 'Unknown')
-            color = "red" if status in ["Success", "Complied", "Looped"] else "green"
-            m3.markdown(f"**Status**: :{color}[**{status}**]")
-            m4.metric("Risk Level", res.get('risk_level', 'N/A'))
+                # [修改点3] 使用 st.metric 统一 Status 的卡片样式
+                status = res.get('success_status', 'Unknown')
+                m3.metric("Status", status)
 
-            st.divider()
-            st.markdown("##### Reasoning")
-            st.info(res.get('reasoning', 'N/A'))
+                m4.metric("Risk Level", res.get('risk_level', 'N/A'))
 
-            st.markdown("##### Evidence")
-            evs = res.get('key_evidence', [])
-            if evs:
-                st.code("\n".join([f"{i + 1}. {e}" for i, e in enumerate(evs)]), language="bash")
-            else:
-                st.caption("No evidence.")
+                st.divider()
+                st.markdown("##### Reasoning")
+                st.info(res.get('reasoning', 'N/A'))
 
-            st.markdown("---")
-            with st.expander("Raw JSON"):
-                st.json(data)
+                st.markdown("##### Evidence")
+                evs = res.get('key_evidence', [])
+                if evs:
+                    st.code("\n".join([f"{i + 1}. {e}" for i, e in enumerate(evs)]), language="bash")
+                else:
+                    st.caption("No evidence.")
+
+                st.markdown("---")
+                with st.expander("Raw JSON"):
+                    st.json(data)

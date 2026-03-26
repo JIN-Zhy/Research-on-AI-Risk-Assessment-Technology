@@ -152,7 +152,7 @@ with st.sidebar:
 
     # Model Selection
     st.subheader("Target Agent")
-    model_options = ["Deepseek", "Gemini"]
+    model_options = ["DeepSeek-V3.2", "Gemini-2.5-Pro"]
     selected_model = st.radio("Select Base Model", model_options, index=0, horizontal=True,
                               label_visibility="collapsed")
     st.caption(f"Viewing: **{selected_model}**")

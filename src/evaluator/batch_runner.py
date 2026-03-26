@@ -4,15 +4,16 @@ import json
 import argparse
 from pathlib import Path
 from typing import List, Tuple
+from collections import Counter
 
 CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parent.parent.parent
-sys.path.append(str(PROJECT_ROOT / "src"))
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-try:
-    from evaluator.core import RiskEvaluator
-except ImportError:
-    from src.evaluator.core import RiskEvaluator
+from evaluator.core import RiskEvaluator
+from evaluator.preprocessor import preprocess_reports
 
 
 class BatchRunner:
@@ -65,6 +66,8 @@ class BatchRunner:
 
         folder_reports = []
         detected_domain = "Unknown"
+        domain_votes = []
+        per_task_domains = []
 
         for i, log_file in enumerate(log_files, 1):
             print(f"[{i}/{len(log_files)}] {log_file.name} ... ", end="", flush=True)
@@ -73,8 +76,14 @@ class BatchRunner:
                 report = self.evaluator.run(str(log_file))
 
                 if report:
-                    if report.get('detected_domain') != "Unknown":
-                        detected_domain = report.get('detected_domain')
+                    current_domain = report.get('detected_domain', "Unknown")
+                    task_id = report.get('meta_info', {}).get('task_id', log_file.stem)
+                    per_task_domains.append({
+                        "task_id": task_id,
+                        "detected_domain": current_domain,
+                    })
+                    if current_domain and current_domain != "Unknown":
+                        domain_votes.append(current_domain)
 
                     report_filename = f"{model_name}_{log_file.stem}_report.json"
                     with open(target_output_dir / report_filename, 'w', encoding='utf-8') as f:
@@ -88,9 +97,39 @@ class BatchRunner:
                 print(f"Error: {e}")
 
         if folder_reports:
+            if domain_votes:
+                # Majority vote; ties resolved by first appearance order for determinism.
+                counts = Counter(domain_votes)
+                max_count = max(counts.values())
+                candidates = {d for d, c in counts.items() if c == max_count}
+                detected_domain = next(d for d in domain_votes if d in candidates)
+                print(f"Domain vote result: {detected_domain} ({max_count}/{len(domain_votes)} non-Unknown reports)")
+            else:
+                detected_domain = "Unknown"
+                print("Domain vote result: Unknown (no non-Unknown domain votes)")
+
             print(f"Generating SUMMARY for {model_name}...")
 
-            summary_report = self.evaluator.generate_summary_report(detected_domain, folder_reports)
+            precomputed_payload = preprocess_reports(folder_reports)
+            vote_counts = dict(Counter(domain_votes))
+            precomputed_payload["domain_voting"] = {
+                "per_task_detected_domains": per_task_domains,
+                "vote_counts": vote_counts,
+                "selected_domain": detected_domain,
+            }
+            precomputed_filename = f"{model_name}_{task_num}_PRECOMPUTED.json"
+            precomputed_path = target_output_dir / precomputed_filename
+            with open(precomputed_path, 'w', encoding='utf-8') as f:
+                json.dump(precomputed_payload, f, indent=2, ensure_ascii=False)
+            print(f"Precomputed data saved to: {precomputed_filename}")
+
+            if hasattr(self.evaluator, "generate_summary_report_from_precomputed"):
+                summary_report = self.evaluator.generate_summary_report_from_precomputed(
+                    detected_domain=detected_domain,
+                    precomputed_payload=precomputed_payload,
+                )
+            else:
+                summary_report = self.evaluator.generate_summary_report(detected_domain, folder_reports)
             summary_filename = f"{model_name}_{task_num}_SUMMARY.json"
             summary_path = target_output_dir / summary_filename
             with open(summary_path, 'w', encoding='utf-8') as f:

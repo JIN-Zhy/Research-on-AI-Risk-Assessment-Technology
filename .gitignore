@@ -1,0 +1,45 @@
+# 1. Core Folders & Configs
+/.env
+#/data/
+#/output_data/
+/data/raw_logs/Task_1_Deepseek-V3
+/data/raw_logs/Task_1_GPT-3.5-turbo-1106
+data/raw_logs/Task_1_GPT-4o
+data/raw_logs/Task_1_GPT-4o-mini
+data/raw_logs/Task_1_GPT-o1
+data/raw_logs/Task_1_GPT-o1-mini-all
+data/raw_logs/Task_1_Llama-3-70B
+data/raw_logs/Task_1_Qwen2-vl-72B-instruct
+/output_data/test_model
+/results/
+/docker_env/
+/experiments/
+
+# 2. Python Virtual Environment
+/venv/
+/.venv/
+/env/
+
+# 3. Python Cache and Build Artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+/build/
+/dist/
+
+# 4. Specific Keys
+config.ini
+*.secret
+private_config.py
+*.key
+
+# 5. IDE PyCharm
+.idea/
+
+# 6. OS and Temporary Files
+*.log
+*.tmp
+*~
+Thumbs.db
